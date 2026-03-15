@@ -8,7 +8,6 @@ import {
   Calendar,
   Plus,
   Trash2,
-  GripVertical,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';

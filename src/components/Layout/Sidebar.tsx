@@ -7,6 +7,9 @@ import {
   Target,
   LogOut,
   FolderKanban,
+  Package,
+  Layers,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
@@ -15,6 +18,9 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/activity/new', icon: PlusCircle, label: 'Nueva Actividad' },
   { to: '/projects', icon: FolderKanban, label: 'Proyectos' },
+  { to: '/articulos', icon: Package, label: 'Articulos' },
+  { to: '/materiales', icon: Layers, label: 'Materiales' },
+  { to: '/recetas', icon: BookOpen, label: 'Recetas BOM' },
   { to: '/history', icon: History, label: 'Historial' },
   { to: '/goals', icon: Target, label: 'Metas Kaizen' },
   { to: '/settings', icon: Settings, label: 'Configuracion' },

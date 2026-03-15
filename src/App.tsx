@@ -5,6 +5,9 @@ import { Dashboard, NewActivity, ContinueActivity, EditActivity, History, Settin
 import { Projects } from './pages/Projects';
 import { NewProject } from './pages/NewProject';
 import { ProjectDetail } from './pages/ProjectDetail';
+import { Articulos } from './pages/Articulos';
+import { Materiales } from './pages/Materiales';
+import { Recetas } from './pages/Recetas';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -77,6 +80,9 @@ function AppRoutes() {
         <Route path="projects" element={<Projects />} />
         <Route path="project/new" element={<NewProject />} />
         <Route path="project/:id" element={<ProjectDetail />} />
+        <Route path="articulos" element={<Articulos />} />
+        <Route path="materiales" element={<Materiales />} />
+        <Route path="recetas" element={<Recetas />} />
         <Route path="history" element={<History />} />
         <Route path="goals" element={<Goals />} />
         <Route path="settings" element={<Settings />} />

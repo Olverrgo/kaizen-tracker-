@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { ImagePlus, X, ZoomIn } from 'lucide-react';
 import type { ImageAttachment } from '../../types';
-import { generateId, cn } from '../../lib/utils';
+import { generateId } from '../../lib/utils';
 
 interface ImageUploadProps {
   images: ImageAttachment[];

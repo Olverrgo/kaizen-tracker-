@@ -2,14 +2,12 @@ import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
-  Edit2,
   Trash2,
   Clock,
   DollarSign,
   Plus,
   TrendingUp,
   Pause,
-  Play,
   CheckCircle,
   XCircle,
   Target,
@@ -18,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, formatDuration, cn } from '../lib/utils';
-import type { ProjectStatus, CustomPhase } from '../types';
+import type { ProjectStatus } from '../types';
 
 const statusConfig: Record<ProjectStatus, { label: string; icon: React.ReactNode; color: string }> = {
   active: { label: 'Activo', icon: <TrendingUp className="h-4 w-4" />, color: '#22c55e' },
