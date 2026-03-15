@@ -1,0 +1,321 @@
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Save, Clock, DollarSign, Plus } from 'lucide-react';
+import { Timer } from '../components/Timer';
+import { useStore } from '../store/useStore';
+import { formatCurrency, formatDuration, cn } from '../lib/utils';
+
+export function ContinueActivity() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { activities, categories, addTimeToActivity, addIncomeToActivity, timer, stopTimer, startTimer } = useStore();
+
+  const activity = activities.find((a) => a.id === id);
+  const category = categories.find((c) => c.id === activity?.categoryId);
+
+  // Income tracking state
+  const [newIncome, setNewIncome] = useState(0);
+  const [newCosts, setNewCosts] = useState(0);
+  const [incomeHistory, setIncomeHistory] = useState<{ income: number; costs: number; time: Date }[]>([]);
+
+  // Manual time adjustment
+  const [manualMinutes, setManualMinutes] = useState(0);
+  const [addedManualMinutes, setAddedManualMinutes] = useState(0);
+
+  // Start timer if not already running for this activity
+  useEffect(() => {
+    if (activity && !timer.isRunning && timer.currentActivityId !== activity.id) {
+      startTimer(activity.id);
+    }
+  }, [activity, timer.isRunning, timer.currentActivityId, startTimer]);
+
+  if (!activity) {
+    return (
+      <div className="max-w-2xl mx-auto text-center py-12">
+        <p className="text-gray-500">Actividad no encontrada</p>
+        <button
+          onClick={() => navigate('/')}
+          className="btn-primary mt-4"
+        >
+          Volver al Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  // Add manual time adjustment
+  const handleAddManualTime = () => {
+    if (manualMinutes > 0) {
+      addTimeToActivity(activity!.id, manualMinutes);
+      setAddedManualMinutes(prev => prev + manualMinutes);
+      setManualMinutes(0);
+    }
+  };
+
+  // Add income while working
+  const handleAddIncome = () => {
+    if (newIncome > 0 || newCosts > 0) {
+      addIncomeToActivity(activity!.id, newIncome, newCosts);
+      setIncomeHistory(prev => [...prev, { income: newIncome, costs: newCosts, time: new Date() }]);
+      setNewIncome(0);
+      setNewCosts(0);
+    }
+  };
+
+  // Calculate session totals
+  const sessionIncome = incomeHistory.reduce((sum, h) => sum + h.income, 0);
+  const sessionCosts = incomeHistory.reduce((sum, h) => sum + h.costs, 0);
+
+  const handleSave = () => {
+    // Add any pending income
+    if (newIncome > 0 || newCosts > 0) {
+      addIncomeToActivity(activity!.id, newIncome, newCosts);
+    }
+
+    // Add time
+    if (timer.elapsedSeconds > 0) {
+      const additionalMinutes = Math.ceil(timer.elapsedSeconds / 60);
+      addTimeToActivity(activity!.id, additionalMinutes);
+      stopTimer();
+    }
+    navigate('/');
+  };
+
+  const handleCancel = () => {
+    stopTimer();
+    navigate('/');
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-6">
+        <button
+          onClick={handleCancel}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5 text-gray-600" />
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Continuar Actividad</h1>
+          <p className="text-gray-500">Agrega mas tiempo a esta actividad</p>
+        </div>
+      </div>
+
+      {/* Activity Info */}
+      <div className="card mb-6">
+        <div className="flex items-center gap-4">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+            style={{ backgroundColor: `${category?.color}20` || '#f3f4f6' }}
+          >
+            {category?.icon || '📋'}
+          </div>
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold text-gray-900">{activity.name}</h2>
+            <p className="text-gray-500">{category?.name || 'Sin categoria'}</p>
+          </div>
+          <div className="text-right">
+            <p className={cn(
+              'text-xl font-bold',
+              activity.profit >= 0 ? 'text-green-600' : 'text-red-600'
+            )}>
+              {formatCurrency(activity.profit)}
+            </p>
+            <p className="text-sm text-gray-500">ganancia actual</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Current Time */}
+      <div className="card mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Clock className="h-5 w-5 text-primary-500" />
+          <h3 className="text-lg font-semibold text-gray-900">Tiempo Registrado</h3>
+        </div>
+
+        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-600">Tiempo actual:</span>
+            <span className="text-2xl font-bold text-gray-900">
+              {formatDuration(activity.durationMinutes)}
+            </span>
+          </div>
+        </div>
+
+        {/* Manual Time Adjustment */}
+        <div className="border-t border-gray-100 pt-4">
+          <p className="text-sm font-medium text-gray-700 mb-2">
+            Ajuste manual de tiempo
+          </p>
+          <p className="text-xs text-gray-500 mb-3">
+            Si olvidaste iniciar el cronometro, agrega los minutos trabajados aqui.
+          </p>
+
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  value={manualMinutes || ''}
+                  onChange={(e) => setManualMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="input text-center"
+                  placeholder="0"
+                />
+                <span className="text-gray-500 text-sm whitespace-nowrap">minutos</span>
+              </div>
+            </div>
+            <button
+              onClick={handleAddManualTime}
+              disabled={manualMinutes <= 0}
+              className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              <Plus className="h-4 w-4" />
+              Agregar
+            </button>
+          </div>
+
+          {addedManualMinutes > 0 && (
+            <div className="mt-3 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
+              +{addedManualMinutes} minutos agregados manualmente esta sesion
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Timer */}
+      <div className="card mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+          Tiempo Adicional
+        </h3>
+        <Timer size="lg" />
+
+        {timer.elapsedSeconds > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-100 text-center">
+            <p className="text-gray-600">
+              Nuevo tiempo total:{' '}
+              <span className="font-bold text-primary-600">
+                {formatDuration(activity.durationMinutes + Math.ceil(timer.elapsedSeconds / 60))}
+              </span>
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Income Section - Add while working */}
+      <div className="card mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <DollarSign className="h-5 w-5 text-green-500" />
+          <h3 className="text-lg font-semibold text-gray-900">Agregar Ingresos</h3>
+        </div>
+
+        <p className="text-sm text-gray-500 mb-4">
+          Registra los ingresos mientras trabajas. Puedes agregar multiples veces.
+        </p>
+
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ingreso
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                $
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={newIncome || ''}
+                onChange={(e) => setNewIncome(parseFloat(e.target.value) || 0)}
+                className="input pl-7"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Costos (opcional)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                $
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={newCosts || ''}
+                onChange={(e) => setNewCosts(parseFloat(e.target.value) || 0)}
+                className="input pl-7"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={handleAddIncome}
+          disabled={newIncome === 0 && newCosts === 0}
+          className="w-full flex items-center justify-center gap-2 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Plus className="h-4 w-4" />
+          Agregar Ingreso
+        </button>
+
+        {/* Income History for this session */}
+        {incomeHistory.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-sm font-medium text-gray-700 mb-2">Esta sesion:</p>
+            <div className="space-y-2">
+              {incomeHistory.map((h, i) => (
+                <div key={i} className="flex items-center justify-between text-sm bg-gray-50 px-3 py-2 rounded-lg">
+                  <span className="text-gray-500">
+                    {h.time.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <div className="flex items-center gap-4">
+                    {h.income > 0 && (
+                      <span className="text-green-600">+{formatCurrency(h.income)}</span>
+                    )}
+                    {h.costs > 0 && (
+                      <span className="text-red-500">-{formatCurrency(h.costs)}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between font-medium">
+              <span className="text-gray-700">Total sesion:</span>
+              <span className={cn(
+                'text-lg',
+                sessionIncome - sessionCosts >= 0 ? 'text-green-600' : 'text-red-600'
+              )}>
+                {formatCurrency(sessionIncome - sessionCosts)}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-4">
+        <button
+          onClick={handleCancel}
+          className="btn-secondary flex-1"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={timer.elapsedSeconds === 0}
+          className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Save className="h-5 w-5" />
+          Guardar Tiempo
+        </button>
+      </div>
+    </div>
+  );
+}
