@@ -66,15 +66,25 @@ export function ContinueActivity() {
   const sessionIncome = incomeHistory.reduce((sum, h) => sum + h.income, 0);
   const sessionCosts = incomeHistory.reduce((sum, h) => sum + h.costs, 0);
 
+  // Compute real elapsed seconds (accounts for background time)
+  const getRealElapsed = () => {
+    let elapsed = timer.elapsedSeconds;
+    if (timer.isRunning && timer.startTime) {
+      elapsed += Math.floor((Date.now() - timer.startTime) / 1000);
+    }
+    return elapsed;
+  };
+
   const handleSave = () => {
     // Add any pending income
     if (newIncome > 0 || newCosts > 0) {
       addIncomeToActivity(activity!.id, newIncome, newCosts);
     }
 
-    // Add time
-    if (timer.elapsedSeconds > 0) {
-      const additionalMinutes = Math.ceil(timer.elapsedSeconds / 60);
+    // Add time using real elapsed (not state snapshot)
+    const realElapsed = getRealElapsed();
+    if (realElapsed > 0) {
+      const additionalMinutes = Math.ceil(realElapsed / 60);
       addTimeToActivity(activity!.id, additionalMinutes);
       stopTimer();
     }

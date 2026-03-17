@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Play, Pause, Square, RotateCcw } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { formatTimer, cn } from '../../lib/utils';
@@ -10,22 +10,35 @@ interface TimerProps {
 }
 
 export function Timer({ onComplete, className, size = 'md' }: TimerProps) {
-  const { timer, startTimer, pauseTimer, stopTimer, resetTimer, tickTimer } =
+  const { timer, startTimer, pauseTimer, stopTimer, resetTimer } =
     useStore();
 
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
+  // Local display seconds — computed from real clock, not ticks
+  const [displaySeconds, setDisplaySeconds] = useState(() => {
+    if (timer.isRunning && timer.startTime) {
+      return timer.elapsedSeconds + Math.floor((Date.now() - timer.startTime) / 1000);
+    }
+    return timer.elapsedSeconds;
+  });
 
-    if (timer.isRunning) {
-      interval = setInterval(() => {
-        tickTimer();
-      }, 1000);
+  useEffect(() => {
+    if (!timer.isRunning || !timer.startTime) {
+      setDisplaySeconds(timer.elapsedSeconds);
+      return;
     }
 
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [timer.isRunning, tickTimer]);
+    // Immediately compute real elapsed on mount/resume
+    const compute = () =>
+      timer.elapsedSeconds + Math.floor((Date.now() - timer.startTime!) / 1000);
+
+    setDisplaySeconds(compute());
+
+    const interval = setInterval(() => {
+      setDisplaySeconds(compute());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timer.isRunning, timer.startTime, timer.elapsedSeconds]);
 
   const handleStop = () => {
     const { elapsedSeconds } = stopTimer();
@@ -50,6 +63,8 @@ export function Timer({ onComplete, className, size = 'md' }: TimerProps) {
     lg: 'h-8 w-8',
   };
 
+  const showStopReset = displaySeconds > 0 || (timer.isRunning && timer.startTime);
+
   return (
     <div className={cn('flex flex-col items-center gap-4', className)}>
       {/* Timer Display */}
@@ -60,7 +75,7 @@ export function Timer({ onComplete, className, size = 'md' }: TimerProps) {
           timer.isRunning ? 'text-primary-600' : 'text-gray-700'
         )}
       >
-        {formatTimer(timer.elapsedSeconds)}
+        {formatTimer(displaySeconds)}
       </div>
 
       {/* Controls */}
@@ -85,7 +100,7 @@ export function Timer({ onComplete, className, size = 'md' }: TimerProps) {
         </button>
 
         {/* Stop Button */}
-        {timer.elapsedSeconds > 0 && (
+        {showStopReset && (
           <button
             onClick={handleStop}
             className={cn(
@@ -99,7 +114,7 @@ export function Timer({ onComplete, className, size = 'md' }: TimerProps) {
         )}
 
         {/* Reset Button */}
-        {timer.elapsedSeconds > 0 && !timer.isRunning && (
+        {displaySeconds > 0 && !timer.isRunning && (
           <button
             onClick={resetTimer}
             className={cn(
@@ -117,7 +132,7 @@ export function Timer({ onComplete, className, size = 'md' }: TimerProps) {
       <p className="text-sm text-gray-500">
         {timer.isRunning
           ? 'Cronometro en marcha...'
-          : timer.elapsedSeconds > 0
+          : displaySeconds > 0
           ? 'En pausa'
           : 'Listo para iniciar'}
       </p>

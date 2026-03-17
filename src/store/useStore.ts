@@ -172,31 +172,50 @@ export const useStore = create<AppState>()(
         set({
           timer: {
             isRunning: true,
-            startTime: new Date(),
+            startTime: Date.now(),
             elapsedSeconds: get().timer.elapsedSeconds,
             currentActivityId: activityId || null,
           },
         }),
       stopTimer: () => {
-        const elapsed = get().timer.elapsedSeconds;
+        const state = get().timer;
+        let elapsed = state.elapsedSeconds;
+        if (state.isRunning && state.startTime) {
+          elapsed += Math.floor((Date.now() - state.startTime) / 1000);
+        }
         set({ timer: defaultTimer });
         return { elapsedSeconds: elapsed };
       },
       pauseTimer: () =>
-        set((state) => ({
-          timer: {
-            ...state.timer,
-            isRunning: false,
-          },
-        })),
+        set((state) => {
+          const t = state.timer;
+          let accumulated = t.elapsedSeconds;
+          if (t.isRunning && t.startTime) {
+            accumulated += Math.floor((Date.now() - t.startTime) / 1000);
+          }
+          return {
+            timer: {
+              ...t,
+              isRunning: false,
+              startTime: null,
+              elapsedSeconds: accumulated,
+            },
+          };
+        }),
       resetTimer: () => set({ timer: defaultTimer }),
       tickTimer: () =>
-        set((state) => ({
-          timer: {
-            ...state.timer,
-            elapsedSeconds: state.timer.elapsedSeconds + 1,
-          },
-        })),
+        set((state) => {
+          const t = state.timer;
+          if (!t.isRunning || !t.startTime) return { timer: t };
+          const realElapsed = t.elapsedSeconds + Math.floor((Date.now() - t.startTime) / 1000);
+          return {
+            timer: {
+              ...t,
+              elapsedSeconds: realElapsed,
+              startTime: Date.now(),
+            },
+          };
+        }),
 
       // Settings
       settings: defaultSettings,
@@ -217,6 +236,7 @@ export const useStore = create<AppState>()(
         categories: state.categories,
         activities: state.activities,
         projects: state.projects,
+        timer: state.timer,
       }),
     }
   )

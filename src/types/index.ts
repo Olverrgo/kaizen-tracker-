@@ -117,7 +117,7 @@ export interface KaizenImprovement {
 // Timer state
 export interface TimerState {
   isRunning: boolean;
-  startTime: Date | null;
+  startTime: number | null;
   elapsedSeconds: number;
   currentActivityId: string | null;
 }
