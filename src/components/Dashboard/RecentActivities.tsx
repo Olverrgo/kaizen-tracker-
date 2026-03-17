@@ -1,7 +1,7 @@
 import { Clock, ArrowRight, Play, Edit2, FileText, Image } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Activity, Category } from '../../types';
-import { formatCurrency, formatDuration, formatRelativeTime, cn } from '../../lib/utils';
+import { formatCurrency, formatDuration, formatRelativeTime, formatTimer, cn } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
 
 interface RecentActivitiesProps {
@@ -11,14 +11,19 @@ interface RecentActivitiesProps {
 
 export function RecentActivities({ activities, categories }: RecentActivitiesProps) {
   const navigate = useNavigate();
-  const { startTimer } = useStore();
+  const { startTimer, timer } = useStore();
 
   const getCategoryById = (id: string) =>
     categories.find((c) => c.id === id);
 
+  const isActivityRunning = (activityId: string) =>
+    timer.isRunning && timer.currentActivityId === activityId;
+
   const handleContinue = (activity: Activity) => {
-    // Start timer for this activity and navigate to continue page
-    startTimer(activity.id);
+    // Only start timer if not already running for this activity
+    if (!isActivityRunning(activity.id)) {
+      startTimer(activity.id);
+    }
     navigate(`/activity/continue/${activity.id}`);
   };
 
@@ -70,15 +75,25 @@ export function RecentActivities({ activities, categories }: RecentActivitiesPro
             ? activity.startTime
             : (activity.startTime?.toDate?.() || new Date(activity.startTime as any));
 
+          const running = isActivityRunning(activity.id);
+
           return (
             <div
               key={activity.id}
-              className="p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100"
+              className={cn(
+                "p-3 rounded-lg transition-colors border",
+                running
+                  ? "border-primary-300 bg-primary-50/50 ring-1 ring-primary-200"
+                  : "border-gray-100 hover:bg-gray-50"
+              )}
             >
               <div className="flex items-center gap-3">
                 {/* Category indicator */}
                 <div
-                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  className={cn(
+                    "w-3 h-3 rounded-full flex-shrink-0",
+                    running && "animate-pulse"
+                  )}
                   style={{ backgroundColor: category?.color || '#6B7280' }}
                 />
 
@@ -122,10 +137,15 @@ export function RecentActivities({ activities, categories }: RecentActivitiesPro
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
                 <button
                   onClick={() => handleContinue(activity)}
-                  className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100 transition-colors text-sm font-medium"
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium",
+                    running
+                      ? "bg-primary-500 text-white hover:bg-primary-600"
+                      : "bg-primary-50 text-primary-600 hover:bg-primary-100"
+                  )}
                 >
-                  <Play className="h-3.5 w-3.5" />
-                  Continuar
+                  <Play className={cn("h-3.5 w-3.5", running && "animate-pulse")} />
+                  {running ? 'En curso - Regresar' : 'Continuar'}
                 </button>
                 <button
                   onClick={() => handleEdit(activity)}

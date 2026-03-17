@@ -22,12 +22,14 @@ export function ContinueActivity() {
   const [manualMinutes, setManualMinutes] = useState(0);
   const [addedManualMinutes, setAddedManualMinutes] = useState(0);
 
-  // Start timer if not already running for this activity
+  // Start timer only if not already running for this activity
   useEffect(() => {
-    if (activity && !timer.isRunning && timer.currentActivityId !== activity.id) {
-      startTimer(activity.id);
+    if (activity && !(timer.isRunning && timer.currentActivityId === activity.id)) {
+      if (!timer.isRunning) {
+        startTimer(activity.id);
+      }
     }
-  }, [activity, timer.isRunning, timer.currentActivityId, startTimer]);
+  }, [activity?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!activity) {
     return (
