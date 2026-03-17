@@ -75,20 +75,24 @@ export function ContinueActivity() {
     return elapsed;
   };
 
-  const handleSave = () => {
+  // Save time from elapsed seconds (called by Timer onComplete and Guardar button)
+  const saveElapsedTime = (elapsedSeconds: number) => {
     // Add any pending income
     if (newIncome > 0 || newCosts > 0) {
       addIncomeToActivity(activity!.id, newIncome, newCosts);
     }
 
-    // Add time using real elapsed (not state snapshot)
-    const realElapsed = getRealElapsed();
-    if (realElapsed > 0) {
-      const additionalMinutes = Math.ceil(realElapsed / 60);
+    if (elapsedSeconds > 0) {
+      const additionalMinutes = Math.ceil(elapsedSeconds / 60);
       addTimeToActivity(activity!.id, additionalMinutes);
-      stopTimer();
     }
     navigate('/');
+  };
+
+  const handleSave = () => {
+    const realElapsed = getRealElapsed();
+    stopTimer();
+    saveElapsedTime(realElapsed);
   };
 
   const handleCancel = () => {
@@ -199,7 +203,12 @@ export function ContinueActivity() {
         <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
           Tiempo Adicional
         </h3>
-        <Timer size="lg" />
+        <Timer
+          size="lg"
+          confirmStop
+          confirmMessage="Se detendrá la actividad y se guardará el tiempo registrado. ¿Continuar?"
+          onComplete={saveElapsedTime}
+        />
 
         {timer.elapsedSeconds > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-100 text-center">
@@ -319,7 +328,7 @@ export function ContinueActivity() {
         </button>
         <button
           onClick={handleSave}
-          disabled={timer.elapsedSeconds === 0}
+          disabled={getRealElapsed() === 0 && !timer.isRunning}
           className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Save className="h-5 w-5" />

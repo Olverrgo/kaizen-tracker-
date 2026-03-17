@@ -5,11 +5,13 @@ import { formatTimer, cn } from '../../lib/utils';
 
 interface TimerProps {
   onComplete?: (elapsedSeconds: number) => void;
+  confirmStop?: boolean;
+  confirmMessage?: string;
   className?: string;
   size?: 'sm' | 'md' | 'lg';
 }
 
-export function Timer({ onComplete, className, size = 'md' }: TimerProps) {
+export function Timer({ onComplete, confirmStop = false, confirmMessage, className, size = 'md' }: TimerProps) {
   const { timer, startTimer, pauseTimer, stopTimer, resetTimer } =
     useStore();
 
@@ -41,6 +43,10 @@ export function Timer({ onComplete, className, size = 'md' }: TimerProps) {
   }, [timer.isRunning, timer.startTime, timer.elapsedSeconds]);
 
   const handleStop = () => {
+    if (confirmStop) {
+      const msg = confirmMessage || 'Se detendrá la actividad y se guardará el tiempo registrado. ¿Continuar?';
+      if (!window.confirm(msg)) return;
+    }
     const { elapsedSeconds } = stopTimer();
     onComplete?.(elapsedSeconds);
   };
