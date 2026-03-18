@@ -1,7 +1,8 @@
-import { Clock, ArrowRight, Play, Edit2, FileText, Image } from 'lucide-react';
+import { Clock, ArrowRight, Play, Edit2, FileText, Image, RotateCcw } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
 import type { Activity, Category } from '../../types';
-import { formatCurrency, formatDuration, formatRelativeTime, cn } from '../../lib/utils';
+import { formatCurrency, formatDuration, formatRelativeTime, formatDateShort, cn, getTodayString } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
 
 interface RecentActivitiesProps {
@@ -13,11 +14,20 @@ export function RecentActivities({ activities, categories }: RecentActivitiesPro
   const navigate = useNavigate();
   const { startTimer, timer } = useStore();
 
+  const today = getTodayString();
+
   const getCategoryById = (id: string) =>
     categories.find((c) => c.id === id);
 
   const isActivityRunning = (activityId: string) =>
     timer.isRunning && timer.currentActivityId === activityId;
+
+  const isFromAnotherDay = (activity: Activity) => {
+    const d = activity.startTime instanceof Date
+      ? activity.startTime
+      : (activity.startTime?.toDate?.() || new Date(activity.startTime as any));
+    return format(d, 'yyyy-MM-dd') !== today;
+  };
 
   const handleContinue = (activity: Activity) => {
     // Only start timer if not already running for this activity
@@ -76,6 +86,7 @@ export function RecentActivities({ activities, categories }: RecentActivitiesPro
             : (activity.startTime?.toDate?.() || new Date(activity.startTime as any));
 
           const running = isActivityRunning(activity.id);
+          const isContinuation = isFromAnotherDay(activity);
 
           return (
             <div
@@ -87,6 +98,16 @@ export function RecentActivities({ activities, categories }: RecentActivitiesPro
                   : "border-gray-100 hover:bg-gray-50"
               )}
             >
+              {/* Continuation badge */}
+              {isContinuation && (
+                <div className="flex items-center gap-1.5 mb-2 px-2 py-1 bg-amber-50 border border-amber-200 rounded-md w-fit">
+                  <RotateCcw className="h-3 w-3 text-amber-600" />
+                  <span className="text-xs font-medium text-amber-700">
+                    Continuacion · Inicio: {formatDateShort(startTimeDate)}
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center gap-3">
                 {/* Category indicator */}
                 <div

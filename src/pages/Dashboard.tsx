@@ -15,18 +15,28 @@ import { useStore } from '../store/useStore';
 import { getTodayString, formatDate } from '../lib/utils';
 
 export function Dashboard() {
-  const { activities, categories, settings } = useStore();
+  const { activities, categories, settings, timer } = useStore();
   const today = getTodayString();
   const [showAISummary, setShowAISummary] = useState(false);
 
-  // Filter today's activities
+  // Filter today's activities + include running activity from other days
   const todayActivities = useMemo(() => {
-    return activities.filter((a) => {
+    const todayActs = activities.filter((a) => {
       const activityDate = a.startTime instanceof Date ? a.startTime : (a.startTime?.toDate?.() || new Date(a.startTime as any));
       if (!activityDate) return false;
       return format(activityDate, 'yyyy-MM-dd') === today;
     });
-  }, [activities, today]);
+
+    // If timer is running on an activity from a different day, include it
+    if (timer.isRunning && timer.currentActivityId) {
+      const runningActivity = activities.find(a => a.id === timer.currentActivityId);
+      if (runningActivity && !todayActs.some(a => a.id === runningActivity.id)) {
+        return [runningActivity, ...todayActs];
+      }
+    }
+
+    return todayActs;
+  }, [activities, today, timer.isRunning, timer.currentActivityId]);
 
   // Calculate today's metrics
   const todayMetrics = useMemo(() => {

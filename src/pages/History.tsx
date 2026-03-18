@@ -2,9 +2,9 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar, TrendingUp, Clock, FileText, Image, Edit2, X, ZoomIn } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, TrendingUp, Clock, FileText, Image, Edit2, X, ZoomIn, Play, RotateCcw } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { formatCurrency, formatDuration, cn } from '../lib/utils';
+import { formatCurrency, formatDuration, formatDateShort, cn } from '../lib/utils';
 
 // Helper to get date from activity (works with Date or Timestamp)
 function getActivityDate(startTime: any): Date | null {
@@ -16,7 +16,7 @@ function getActivityDate(startTime: any): Date | null {
 
 export function History() {
   const navigate = useNavigate();
-  const { activities, categories, settings } = useStore();
+  const { activities, categories, settings, timer } = useStore();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
@@ -42,14 +42,24 @@ export function History() {
     return profits;
   }, [activities]);
 
-  // Get activities for selected date
+  // Get activities for selected date (include running activity from other days if viewing today)
   const selectedDateActivities = useMemo(() => {
     if (!selectedDate) return [];
-    return activities.filter((a) => {
+    const dayActs = activities.filter((a) => {
       const date = getActivityDate(a.startTime);
       return date && isSameDay(date, selectedDate);
     });
-  }, [activities, selectedDate]);
+
+    // If viewing today and there's a running activity from another day, include it
+    if (isSameDay(selectedDate, new Date()) && timer.isRunning && timer.currentActivityId) {
+      const runningActivity = activities.find(a => a.id === timer.currentActivityId);
+      if (runningActivity && !dayActs.some(a => a.id === runningActivity.id)) {
+        return [runningActivity, ...dayActs];
+      }
+    }
+
+    return dayActs;
+  }, [activities, selectedDate, timer.isRunning, timer.currentActivityId]);
 
   // Monthly stats
   const monthlyStats = useMemo(() => {
@@ -205,6 +215,8 @@ export function History() {
               const profit = dailyProfits[dateString] || 0;
               const isSelected = selectedDate && isSameDay(day, selectedDate);
               const isToday = isSameDay(day, new Date());
+              // Show running indicator if today has a running timer
+              const hasRunning = isToday && timer.isRunning && timer.currentActivityId;
 
               return (
                 <button
@@ -220,14 +232,19 @@ export function History() {
                   <span className="text-sm text-gray-700">
                     {format(day, 'd')}
                   </span>
-                  {profit !== 0 && (
-                    <div
-                      className={cn(
-                        'w-2 h-2 rounded-full mt-1',
-                        getColorForProfit(profit)
-                      )}
-                    />
-                  )}
+                  <div className="flex items-center gap-0.5 mt-1">
+                    {profit !== 0 && (
+                      <div
+                        className={cn(
+                          'w-2 h-2 rounded-full',
+                          getColorForProfit(profit)
+                        )}
+                      />
+                    )}
+                    {hasRunning && (
+                      <div className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -271,11 +288,28 @@ export function History() {
                   const hasNotes = activity.notes && activity.notes.trim().length > 0;
                   const hasImages = activity.images && activity.images.length > 0;
 
+                  const actDate = getActivityDate(activity.startTime);
+                  const isContinuation = selectedDate && actDate && !isSameDay(actDate, selectedDate);
+                  const isRunning = timer.isRunning && timer.currentActivityId === activity.id;
+
                   return (
                     <div
                       key={activity.id}
-                      className="bg-gray-50 rounded-lg overflow-hidden"
+                      className={cn(
+                        "rounded-lg overflow-hidden",
+                        isRunning ? "bg-primary-50 border border-primary-200" : "bg-gray-50"
+                      )}
                     >
+                      {/* Continuation badge */}
+                      {isContinuation && actDate && (
+                        <div className="flex items-center gap-1.5 mx-3 mt-2 px-2 py-1 bg-amber-50 border border-amber-200 rounded-md w-fit">
+                          <RotateCcw className="h-3 w-3 text-amber-600" />
+                          <span className="text-xs font-medium text-amber-700">
+                            Continuacion · Inicio: {formatDateShort(actDate)}
+                          </span>
+                        </div>
+                      )}
+
                       {/* Header - clickable to expand */}
                       <button
                         onClick={() => setExpandedActivityId(isExpanded ? null : activity.id)}
@@ -283,12 +317,18 @@ export function History() {
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <div
-                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            className={cn(
+                              "w-2 h-2 rounded-full flex-shrink-0",
+                              isRunning && "animate-pulse"
+                            )}
                             style={{ backgroundColor: category?.color || '#6B7280' }}
                           />
                           <span className="font-medium text-gray-900 text-sm flex-1">
                             {activity.name}
                           </span>
+                          {isRunning && (
+                            <span className="text-xs font-medium text-primary-600 bg-primary-100 px-1.5 py-0.5 rounded">En curso</span>
+                          )}
                           {/* Indicators for notes/images */}
                           {hasNotes && (
                             <FileText className="h-3.5 w-3.5 text-gray-400" />
@@ -368,14 +408,23 @@ export function History() {
                             </div>
                           )}
 
-                          {/* Edit button */}
-                          <button
-                            onClick={() => navigate(`/activity/edit/${activity.id}`)}
-                            className="w-full flex items-center justify-center gap-2 py-2 bg-primary-50 text-primary-600 rounded-lg text-sm font-medium hover:bg-primary-100 transition-colors"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                            Editar actividad
-                          </button>
+                          {/* Action buttons */}
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => navigate(`/activity/continue/${activity.id}`)}
+                              className="flex-1 flex items-center justify-center gap-2 py-2 bg-primary-50 text-primary-600 rounded-lg text-sm font-medium hover:bg-primary-100 transition-colors"
+                            >
+                              <Play className="h-4 w-4" />
+                              Continuar
+                            </button>
+                            <button
+                              onClick={() => navigate(`/activity/edit/${activity.id}`)}
+                              className="flex-1 flex items-center justify-center gap-2 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                              Editar
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
