@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Save, Clock, DollarSign, Plus } from 'lucide-react';
+import { ArrowLeft, Save, Clock, DollarSign, Plus, RotateCcw } from 'lucide-react';
+import { format } from 'date-fns';
 import { Timer } from '../components/Timer';
 import { useStore } from '../store/useStore';
-import { formatCurrency, formatDuration, cn } from '../lib/utils';
+import { formatCurrency, formatDuration, generateId, cn, getTodayString, formatDateShort } from '../lib/utils';
+import type { Activity } from '../types';
 
 export function ContinueActivity() {
   const { id } = useParams<{ id: string }>();
@@ -11,11 +13,20 @@ export function ContinueActivity() {
   const [searchParams] = useSearchParams();
   const fromProject = searchParams.get('from') === 'project';
   const projectId = searchParams.get('projectId');
-  const { activities, categories, projects, addTimeToActivity, addIncomeToActivity, addTimeToProject, addIncomeToProject, timer, stopTimer, startTimer } = useStore();
+  const { activities, categories, projects, addActivity, addTimeToActivity, addIncomeToActivity, addTimeToProject, addIncomeToProject, timer, stopTimer, startTimer } = useStore();
   const project = projectId ? projects.find(p => p.id === projectId) : null;
 
   const activity = activities.find((a) => a.id === id);
   const category = categories.find((c) => c.id === activity?.categoryId);
+
+  // Detect if this activity is from a different day
+  const isCrossDayContinuation = useMemo(() => {
+    if (!activity) return false;
+    const d = activity.startTime instanceof Date
+      ? activity.startTime
+      : (activity.startTime?.toDate?.() || new Date(activity.startTime as any));
+    return format(d, 'yyyy-MM-dd') !== getTodayString();
+  }, [activity]);
 
   // Income tracking state
   const [newIncome, setNewIncome] = useState(0);
@@ -52,7 +63,9 @@ export function ContinueActivity() {
   // Add manual time adjustment
   const handleAddManualTime = () => {
     if (manualMinutes > 0) {
-      addTimeToActivity(activity!.id, manualMinutes);
+      if (!isCrossDayContinuation) {
+        addTimeToActivity(activity!.id, manualMinutes);
+      }
       setAddedManualMinutes(prev => prev + manualMinutes);
       setManualMinutes(0);
     }
@@ -61,12 +74,15 @@ export function ContinueActivity() {
   // Add income while working
   const handleAddIncome = () => {
     if (newIncome > 0 || newCosts > 0) {
-      addIncomeToActivity(activity!.id, newIncome, newCosts);
-      // Sync project income if activity belongs to a project
-      const actProjectId = activity!.projectId || projectId;
-      if (actProjectId) {
-        addIncomeToProject(actProjectId, newIncome, newCosts);
+      if (!isCrossDayContinuation) {
+        // Same day: add directly to original activity
+        addIncomeToActivity(activity!.id, newIncome, newCosts);
+        const actProjectId = activity!.projectId || projectId;
+        if (actProjectId) {
+          addIncomeToProject(actProjectId, newIncome, newCosts);
+        }
       }
+      // Always track in local history (used for cross-day new activity creation)
       setIncomeHistory(prev => [...prev, { income: newIncome, costs: newCosts, time: new Date() }]);
       setNewIncome(0);
       setNewCosts(0);
@@ -92,21 +108,67 @@ export function ContinueActivity() {
   const saveElapsedTime = (elapsedSeconds: number) => {
     const actProjectId = activity!.projectId || projectId;
 
-    // Add any pending income
-    if (newIncome > 0 || newCosts > 0) {
-      addIncomeToActivity(activity!.id, newIncome, newCosts);
-      if (actProjectId) {
-        addIncomeToProject(actProjectId, newIncome, newCosts);
+    if (isCrossDayContinuation) {
+      // Cross-day: create a NEW activity for today with session data
+      const timerMinutes = elapsedSeconds > 0 ? Math.ceil(elapsedSeconds / 60) : 0;
+      const totalSessionMinutes = timerMinutes + addedManualMinutes;
+
+      // Pending income not yet in history
+      const pendingIncome = newIncome > 0 || newCosts > 0
+        ? [{ income: newIncome, costs: newCosts }]
+        : [];
+      const allIncome = [...incomeHistory, ...pendingIncome];
+      const totalIncome = allIncome.reduce((s, h) => s + h.income, 0);
+      const totalCosts = allIncome.reduce((s, h) => s + h.costs, 0);
+
+      if (totalSessionMinutes > 0 || totalIncome > 0 || totalCosts > 0) {
+        const now = new Date();
+        const continuation: Activity = {
+          id: generateId(),
+          categoryId: activity!.categoryId,
+          projectId: actProjectId || undefined,
+          name: activity!.name,
+          description: `Continuacion de actividad del ${formatDateShort(
+            activity!.startTime instanceof Date
+              ? activity!.startTime
+              : (activity!.startTime?.toDate?.() || new Date(activity!.startTime as any))
+          )}`,
+          startTime: now as any,
+          endTime: now as any,
+          durationMinutes: totalSessionMinutes,
+          income: totalIncome,
+          costs: totalCosts,
+          profit: totalIncome - totalCosts,
+          isProductive: activity!.isProductive,
+          createdAt: now as any,
+        };
+
+        addActivity(continuation);
+
+        // Update project totals
+        if (actProjectId) {
+          if (totalSessionMinutes > 0) addTimeToProject(actProjectId, totalSessionMinutes);
+          if (totalIncome > 0 || totalCosts > 0) addIncomeToProject(actProjectId, totalIncome, totalCosts);
+        }
+      }
+    } else {
+      // Same day: add to original activity as before
+      if (newIncome > 0 || newCosts > 0) {
+        addIncomeToActivity(activity!.id, newIncome, newCosts);
+        if (actProjectId) {
+          addIncomeToProject(actProjectId, newIncome, newCosts);
+        }
+      }
+
+      if (elapsedSeconds > 0) {
+        const additionalMinutes = Math.ceil(elapsedSeconds / 60);
+        addTimeToActivity(activity!.id, additionalMinutes);
+        if (actProjectId) {
+          addTimeToProject(actProjectId, additionalMinutes);
+        }
       }
     }
 
-    if (elapsedSeconds > 0) {
-      const additionalMinutes = Math.ceil(elapsedSeconds / 60);
-      addTimeToActivity(activity!.id, additionalMinutes);
-      if (actProjectId) {
-        addTimeToProject(actProjectId, additionalMinutes);
-      }
-    }
     navigate(returnPath);
   };
 
@@ -143,6 +205,19 @@ export function ContinueActivity() {
         </div>
       </div>
 
+      {/* Cross-day notice */}
+      {isCrossDayContinuation && (
+        <div className="flex items-center gap-3 p-3 mb-4 rounded-xl bg-amber-50 border border-amber-200">
+          <RotateCcw className="h-5 w-5 text-amber-600 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Continuacion de actividad anterior</p>
+            <p className="text-xs text-amber-600">
+              El tiempo e ingresos de esta sesion se registraran como actividad de hoy
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Activity Info */}
       <div className="card mb-6">
         <div className="flex items-center gap-4">
@@ -163,7 +238,7 @@ export function ContinueActivity() {
             )}>
               {formatCurrency(activity.profit)}
             </p>
-            <p className="text-sm text-gray-500">ganancia actual</p>
+            <p className="text-sm text-gray-500">ganancia acumulada</p>
           </div>
         </div>
       </div>
