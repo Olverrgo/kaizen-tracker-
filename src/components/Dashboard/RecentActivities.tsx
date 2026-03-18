@@ -1,7 +1,7 @@
 import { Clock, ArrowRight, Play, Edit2, FileText, Image } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Activity, Category } from '../../types';
-import { formatCurrency, formatDuration, formatRelativeTime, formatTimer, cn } from '../../lib/utils';
+import { formatCurrency, formatDuration, formatRelativeTime, cn } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
 
 interface RecentActivitiesProps {
