@@ -12,8 +12,14 @@ import {
   XCircle,
   Target,
   FileText,
-  ChevronRight
+  ChevronRight,
+  Play,
+  Pencil,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { useStore } from '../store/useStore';
 import { formatCurrency, formatDuration, cn } from '../lib/utils';
 import type { ProjectStatus } from '../types';
@@ -42,6 +48,23 @@ export function ProjectDetail() {
 
   const [showPhaseModal, setShowPhaseModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showAllActivities, setShowAllActivities] = useState(false);
+
+  // Group activities by date
+  const activitiesByDate = useMemo(() => {
+    const groups: Record<string, typeof projectActivities> = {};
+    for (const activity of projectActivities) {
+      const d = activity.startTime instanceof Date
+        ? activity.startTime
+        : (activity.startTime?.toDate?.() || new Date(activity.startTime as any));
+      const dateKey = format(d, 'yyyy-MM-dd');
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(activity);
+    }
+    return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
+  }, [projectActivities]);
+
+  const lastActivity = projectActivities[0];
 
   if (!project) {
     return (
@@ -278,15 +301,37 @@ export function ProjectDetail() {
       {/* Activities */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-900">Actividades del Proyecto</h3>
+          <h3 className="font-semibold text-gray-900">
+            Actividades del Proyecto
+            {projectActivities.length > 0 && (
+              <span className="text-gray-400 font-normal ml-2">({projectActivities.length})</span>
+            )}
+          </h3>
           <Link
             to={`/activity/new?projectId=${project.id}`}
             className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
           >
             <Plus className="h-4 w-4" />
-            Agregar actividad
+            Nueva actividad
           </Link>
         </div>
+
+        {/* Quick continue last activity */}
+        {lastActivity && project.status === 'active' && (
+          <Link
+            to={`/activity/continue/${lastActivity.id}?from=project&projectId=${project.id}`}
+            className="flex items-center gap-3 p-3 mb-4 rounded-xl bg-gradient-to-r from-primary-50 to-green-50 border border-primary-100 hover:border-primary-300 transition-colors"
+          >
+            <div className="p-2 rounded-lg bg-primary-500 text-white">
+              <Play className="h-4 w-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-primary-700">Continuar ultima actividad</p>
+              <p className="text-sm text-primary-600 truncate">{lastActivity.name}</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-primary-400" />
+          </Link>
+        )}
 
         {projectActivities.length === 0 ? (
           <div className="text-center py-8">
@@ -301,42 +346,81 @@ export function ProjectDetail() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-3">
-            {projectActivities.slice(0, 10).map((activity) => {
-              const category = getCategoryById(activity.categoryId);
-              return (
-                <Link
-                  key={activity.id}
-                  to={`/activity/edit/${activity.id}`}
-                  className="block p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: category?.color || '#6B7280' }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate">{activity.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {formatDuration(activity.durationMinutes)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className={cn(
-                        'font-semibold',
-                        activity.profit >= 0 ? 'text-green-600' : 'text-red-600'
-                      )}>
-                        {activity.profit >= 0 ? '+' : ''}{formatCurrency(activity.profit)}
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-            {projectActivities.length > 10 && (
-              <p className="text-center text-sm text-gray-500 pt-2">
-                Y {projectActivities.length - 10} actividades mas...
-              </p>
+          <div className="space-y-4">
+            {(showAllActivities ? activitiesByDate : activitiesByDate.slice(0, 3)).map(([dateKey, dayActivities]) => (
+              <div key={dateKey}>
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                  {format(new Date(dateKey + 'T12:00:00'), "EEEE d 'de' MMMM", { locale: es })}
+                </p>
+                <div className="space-y-2">
+                  {dayActivities.map((activity) => {
+                    const category = getCategoryById(activity.categoryId);
+                    return (
+                      <div
+                        key={activity.id}
+                        className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
+                      >
+                        <div
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: category?.color || '#6B7280' }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{activity.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {formatDuration(activity.durationMinutes)}
+                            {category && <span className="ml-2 text-gray-400">· {category.name}</span>}
+                          </p>
+                        </div>
+                        <div className="text-right mr-2">
+                          <p className={cn(
+                            'font-semibold text-sm',
+                            activity.profit >= 0 ? 'text-green-600' : 'text-red-600'
+                          )}>
+                            {activity.profit >= 0 ? '+' : ''}{formatCurrency(activity.profit)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Link
+                            to={`/activity/continue/${activity.id}?from=project&projectId=${project.id}`}
+                            className="p-1.5 rounded-lg bg-primary-100 text-primary-600 hover:bg-primary-200 transition-colors"
+                            title="Continuar actividad"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Play className="h-3.5 w-3.5" />
+                          </Link>
+                          <Link
+                            to={`/activity/edit/${activity.id}`}
+                            className="p-1.5 rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors"
+                            title="Editar actividad"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {activitiesByDate.length > 3 && (
+              <button
+                onClick={() => setShowAllActivities(!showAllActivities)}
+                className="w-full flex items-center justify-center gap-2 py-2 text-sm text-primary-600 hover:text-primary-700 font-medium"
+              >
+                {showAllActivities ? (
+                  <>
+                    <ChevronUp className="h-4 w-4" />
+                    Mostrar menos
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4" />
+                    Ver todos los dias ({activitiesByDate.length - 3} mas)
+                  </>
+                )}
+              </button>
             )}
           </div>
         )}

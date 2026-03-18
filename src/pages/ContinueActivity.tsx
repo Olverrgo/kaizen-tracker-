@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Clock, DollarSign, Plus } from 'lucide-react';
 import { Timer } from '../components/Timer';
 import { useStore } from '../store/useStore';
@@ -8,7 +8,11 @@ import { formatCurrency, formatDuration, cn } from '../lib/utils';
 export function ContinueActivity() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { activities, categories, addTimeToActivity, addIncomeToActivity, timer, stopTimer, startTimer } = useStore();
+  const [searchParams] = useSearchParams();
+  const fromProject = searchParams.get('from') === 'project';
+  const projectId = searchParams.get('projectId');
+  const { activities, categories, projects, addTimeToActivity, addIncomeToActivity, addTimeToProject, addIncomeToProject, timer, stopTimer, startTimer } = useStore();
+  const project = projectId ? projects.find(p => p.id === projectId) : null;
 
   const activity = activities.find((a) => a.id === id);
   const category = categories.find((c) => c.id === activity?.categoryId);
@@ -36,10 +40,10 @@ export function ContinueActivity() {
       <div className="max-w-2xl mx-auto text-center py-12">
         <p className="text-gray-500">Actividad no encontrada</p>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate(returnPath)}
           className="btn-primary mt-4"
         >
-          Volver al Dashboard
+          {fromProject ? 'Volver al Proyecto' : 'Volver al Dashboard'}
         </button>
       </div>
     );
@@ -58,6 +62,11 @@ export function ContinueActivity() {
   const handleAddIncome = () => {
     if (newIncome > 0 || newCosts > 0) {
       addIncomeToActivity(activity!.id, newIncome, newCosts);
+      // Sync project income if activity belongs to a project
+      const actProjectId = activity!.projectId || projectId;
+      if (actProjectId) {
+        addIncomeToProject(actProjectId, newIncome, newCosts);
+      }
       setIncomeHistory(prev => [...prev, { income: newIncome, costs: newCosts, time: new Date() }]);
       setNewIncome(0);
       setNewCosts(0);
@@ -77,18 +86,28 @@ export function ContinueActivity() {
     return elapsed;
   };
 
+  const returnPath = fromProject && projectId ? `/project/${projectId}` : '/';
+
   // Save time from elapsed seconds (called by Timer onComplete and Guardar button)
   const saveElapsedTime = (elapsedSeconds: number) => {
+    const actProjectId = activity!.projectId || projectId;
+
     // Add any pending income
     if (newIncome > 0 || newCosts > 0) {
       addIncomeToActivity(activity!.id, newIncome, newCosts);
+      if (actProjectId) {
+        addIncomeToProject(actProjectId, newIncome, newCosts);
+      }
     }
 
     if (elapsedSeconds > 0) {
       const additionalMinutes = Math.ceil(elapsedSeconds / 60);
       addTimeToActivity(activity!.id, additionalMinutes);
+      if (actProjectId) {
+        addTimeToProject(actProjectId, additionalMinutes);
+      }
     }
-    navigate('/');
+    navigate(returnPath);
   };
 
   const handleSave = () => {
@@ -99,7 +118,7 @@ export function ContinueActivity() {
 
   const handleCancel = () => {
     stopTimer();
-    navigate('/');
+    navigate(returnPath);
   };
 
   return (
@@ -114,7 +133,13 @@ export function ContinueActivity() {
         </button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Continuar Actividad</h1>
-          <p className="text-gray-500">Agrega mas tiempo a esta actividad</p>
+          <p className="text-gray-500">
+            {project ? (
+              <>Proyecto: <span className="font-medium text-primary-600">{project.icon} {project.name}</span></>
+            ) : (
+              'Agrega mas tiempo a esta actividad'
+            )}
+          </p>
         </div>
       </div>
 

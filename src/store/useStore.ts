@@ -54,6 +54,7 @@ const defaultSettings: UserSettings = {
   dailyProfitTarget: 500,
   workingHoursPerDay: 8,
   currency: 'MXN',
+  aiCoachEnabled: true,
 };
 
 const defaultTimer: TimerState = {

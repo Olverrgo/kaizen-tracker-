@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Sparkles } from 'lucide-react';
 import { format, subDays } from 'date-fns';
@@ -8,6 +8,7 @@ import {
   DailyStats,
   RecentActivities,
   WeeklyChart,
+  AISummaryModal,
 } from '../components/Dashboard';
 import { Timer } from '../components/Timer';
 import { useStore } from '../store/useStore';
@@ -16,6 +17,7 @@ import { getTodayString, formatDate } from '../lib/utils';
 export function Dashboard() {
   const { activities, categories, settings } = useStore();
   const today = getTodayString();
+  const [showAISummary, setShowAISummary] = useState(false);
 
   // Filter today's activities
   const todayActivities = useMemo(() => {
@@ -93,13 +95,24 @@ export function Dashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-500">{formatDate(new Date())}</p>
         </div>
-        <Link
-          to="/activity/new"
-          className="btn-primary flex items-center gap-2"
-        >
-          <PlusCircle className="h-5 w-5" />
-          Nueva Actividad
-        </Link>
+        <div className="flex items-center gap-3">
+          {settings.aiCoachEnabled !== false && (
+            <button
+              onClick={() => setShowAISummary(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-primary-500 to-green-500 text-white hover:from-primary-600 hover:to-green-600 transition-all shadow-sm"
+            >
+              <Sparkles className="h-4 w-4" />
+              Resumen IA
+            </button>
+          )}
+          <Link
+            to="/activity/new"
+            className="btn-primary flex items-center gap-2"
+          >
+            <PlusCircle className="h-5 w-5" />
+            Nueva Actividad
+          </Link>
+        </div>
       </div>
 
       {/* Kaizen Tip */}
@@ -156,6 +169,11 @@ export function Dashboard() {
           />
         </div>
       </div>
+      {/* AI Summary Modal */}
+      <AISummaryModal
+        isOpen={showAISummary}
+        onClose={() => setShowAISummary(false)}
+      />
     </div>
   );
 }

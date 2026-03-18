@@ -127,6 +127,7 @@ export interface UserSettings {
   dailyProfitTarget: number; // Default: 500
   workingHoursPerDay: number; // Default: 8
   currency: string; // Default: 'MXN'
+  aiCoachEnabled?: boolean; // Default: true
 }
 
 // Dashboard metrics
