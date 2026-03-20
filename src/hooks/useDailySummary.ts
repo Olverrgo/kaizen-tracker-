@@ -83,6 +83,14 @@ export function useDailySummary() {
       return total;
     })();
 
+    // Days remaining in the week (including today)
+    const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon...
+    const daysRemainingInWeek = dayOfWeek === 0 ? 1 : 7 - dayOfWeek + 1;
+    const weeklyTarget = settings.dailyProfitTarget * 7;
+    const weeklyRemaining = Math.max(0, weeklyTarget - weeklyProfit);
+    const daysLeft = Math.max(1, daysRemainingInWeek - 1); // excluding today (already counted)
+    const dailyTargetToReachWeeklyGoal = daysLeft > 0 ? Math.round(weeklyRemaining / daysLeft) : 0;
+
     return {
       date: today,
       totalIncome,
@@ -96,7 +104,9 @@ export function useDailySummary() {
       topActivities,
       streak,
       weeklyProfit,
-      weeklyTarget: settings.dailyProfitTarget * 7,
+      weeklyTarget,
+      daysRemainingInWeek,
+      dailyTargetToReachWeeklyGoal,
     };
   }, [activities, settings, dailyGoals]);
 

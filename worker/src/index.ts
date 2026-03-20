@@ -18,6 +18,8 @@ interface SummaryPayload {
   streak: number;
   weeklyProfit: number;
   weeklyTarget: number;
+  daysRemainingInWeek: number;
+  dailyTargetToReachWeeklyGoal: number;
 }
 
 interface TTSPayload {
@@ -48,9 +50,11 @@ function buildSystemPrompt(): string {
 - Usa español mexicano natural (tuteo, expresiones coloquiales pero profesionales)
 - Maximo 150 palabras
 - Destaca logros especificos con numeros
+- IMPORTANTE: el campo goalAchievementPct ya tiene el porcentaje calculado correctamente. Usalo directamente, NO lo recalcules. Por ejemplo si dice 90% es que alcanzo el 90% de su meta
 - Si no alcanzo la meta, motivalo sin juzgar y sugiere una mejora concreta
 - Si supero la meta, celebra y reta a mejorar manana
 - Menciona el streak si es > 1 dia
+- Menciona cuantos dias faltan en la semana y cuanto necesita producir por dia para alcanzar la meta semanal. Usa los campos daysRemainingInWeek y dailyTargetToReachWeeklyGoal
 - Termina con una frase motivacional corta
 - NO uses emojis
 - NO uses markdown ni formato especial, solo texto plano`;
@@ -66,12 +70,15 @@ function buildUserPrompt(data: SummaryPayload): string {
 - Costos: $${data.totalCosts}
 - Ganancia: $${data.totalProfit}
 - Meta diaria: $${data.dailyProfitTarget}
-- Logro de meta: ${data.goalAchievementPct}%
+- Logro de meta: ${data.goalAchievementPct}% (es decir, alcanzo el ${data.goalAchievementPct}% de su meta de $${data.dailyProfitTarget})
 - Minutos productivos: ${data.productiveMinutes}
 - Minutos desperdiciados: ${data.wastedMinutes}
 - Actividades completadas: ${data.activitiesCount}
 - Racha de dias: ${data.streak}
 - Ganancia semanal acumulada: $${data.weeklyProfit} (meta semanal: $${data.weeklyTarget})
+- Dias restantes en la semana (sin contar hoy): ${data.daysRemainingInWeek - 1}
+- Falta para meta semanal: $${Math.max(0, data.weeklyTarget - data.weeklyProfit)}
+- Para alcanzar meta semanal necesita producir: $${data.dailyTargetToReachWeeklyGoal} por dia los proximos ${data.daysRemainingInWeek - 1} dias
 
 Top actividades:
 ${topActs || '(sin actividades registradas)'}
