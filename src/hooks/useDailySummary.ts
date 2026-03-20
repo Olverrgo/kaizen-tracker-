@@ -68,11 +68,17 @@ export function useDailySummary() {
       }
     }
 
-    // Weekly profit
+    // Weekly profit (Lunes a Sabado = 6 dias laborales)
+    // Calculate from Monday of current week
+    const now = new Date();
+    const jsDay = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    // Days since Monday: Mon=0, Tue=1, ..., Sat=5, Sun=6
+    const daysSinceMonday = jsDay === 0 ? 6 : jsDay - 1;
+
     const weeklyProfit = (() => {
       let total = 0;
-      for (let i = 0; i < 7; i++) {
-        const d = format(subDays(new Date(), i), 'yyyy-MM-dd');
+      for (let i = 0; i <= daysSinceMonday; i++) {
+        const d = format(subDays(now, i), 'yyyy-MM-dd');
         total += activities
           .filter(a => {
             const ad = a.startTime instanceof Date ? a.startTime : (a.startTime?.toDate?.() || new Date(a.startTime as any));
@@ -83,13 +89,16 @@ export function useDailySummary() {
       return total;
     })();
 
-    // Days remaining in the week (including today)
-    const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon...
-    const daysRemainingInWeek = dayOfWeek === 0 ? 1 : 7 - dayOfWeek + 1;
-    const weeklyTarget = settings.dailyProfitTarget * 7;
+    // Work week: Mon-Sat (6 days)
+    // daysSinceMonday: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
+    const workDayIndex = Math.min(daysSinceMonday, 5); // Sun counts as after Sat
+    const daysWorkedIncludingToday = workDayIndex + 1; // 1-6
+    const daysRemainingInWeek = Math.max(0, 6 - daysWorkedIncludingToday); // excluding today
+    const weeklyTarget = settings.dailyProfitTarget * 6;
     const weeklyRemaining = Math.max(0, weeklyTarget - weeklyProfit);
-    const daysLeft = Math.max(1, daysRemainingInWeek - 1); // excluding today (already counted)
-    const dailyTargetToReachWeeklyGoal = daysLeft > 0 ? Math.round(weeklyRemaining / daysLeft) : 0;
+    const dailyTargetToReachWeeklyGoal = daysRemainingInWeek > 0
+      ? Math.round(weeklyRemaining / daysRemainingInWeek)
+      : 0;
 
     return {
       date: today,

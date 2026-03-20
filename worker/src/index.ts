@@ -54,7 +54,9 @@ function buildSystemPrompt(): string {
 - Si no alcanzo la meta, motivalo sin juzgar y sugiere una mejora concreta
 - Si supero la meta, celebra y reta a mejorar manana
 - Menciona el streak si es > 1 dia
-- Menciona cuantos dias faltan en la semana y cuanto necesita producir por dia para alcanzar la meta semanal. Usa los campos daysRemainingInWeek y dailyTargetToReachWeeklyGoal
+- La semana laboral es de Lunes a Sabado (6 dias). El domingo es descanso
+- Menciona cuantos dias laborales faltan en la semana y cuanto necesita producir por dia para alcanzar la meta semanal. Usa los campos daysRemainingInWeek y dailyTargetToReachWeeklyGoal
+- El usuario tiene horario flexible con pausas durante el dia, solo cuenta minutos trabajados reales
 - Termina con una frase motivacional corta
 - NO uses emojis
 - NO uses markdown ni formato especial, solo texto plano`;
@@ -75,10 +77,10 @@ function buildUserPrompt(data: SummaryPayload): string {
 - Minutos desperdiciados: ${data.wastedMinutes}
 - Actividades completadas: ${data.activitiesCount}
 - Racha de dias: ${data.streak}
-- Ganancia semanal acumulada: $${data.weeklyProfit} (meta semanal: $${data.weeklyTarget})
-- Dias restantes en la semana (sin contar hoy): ${data.daysRemainingInWeek - 1}
+- Ganancia semanal acumulada (Lun-Sab): $${data.weeklyProfit} (meta semanal: $${data.weeklyTarget})
+- Dias laborales restantes en la semana (sin contar hoy): ${data.daysRemainingInWeek}
 - Falta para meta semanal: $${Math.max(0, data.weeklyTarget - data.weeklyProfit)}
-- Para alcanzar meta semanal necesita producir: $${data.dailyTargetToReachWeeklyGoal} por dia los proximos ${data.daysRemainingInWeek - 1} dias
+- Para alcanzar meta semanal necesita producir: $${data.dailyTargetToReachWeeklyGoal} por dia los proximos ${data.daysRemainingInWeek} dias laborales
 
 Top actividades:
 ${topActs || '(sin actividades registradas)'}
